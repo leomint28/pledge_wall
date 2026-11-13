@@ -1,0 +1,188 @@
+/* Wall (TV) – sage green, a shade deeper than the pledge page */
+:root {
+  --wall-bg: #D6E7D1;
+  --wall-bg-2: #C5DCC0;
+  --leaf: clamp(40px, 7.4vmin, 240px);   /* leaf size scales with the screen */
+  --grass-h: clamp(60px, 12vh, 320px);    /* grass along the bottom */
+}
+
+html, body { height: 100%; overflow: hidden; }
+body { background: var(--wall-bg); }
+body.idle, body.idle * { cursor: none !important; }
+
+.ar { font-weight: 400; }
+
+/* ---------- layout: landscape first */
+.wall {
+  height: 100vh; height: 100dvh;
+  position: relative;
+  display: grid; grid-template-rows: auto 1fr;
+  background:
+    radial-gradient(120% 80% at 20% 0%, rgba(255,255,255,.45), transparent 60%),
+    linear-gradient(to bottom, var(--wall-bg), var(--wall-bg-2));
+}
+
+.head {
+  display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 1vh 3vw;
+  padding: 2.6vh 3vw 1.4vh;
+}
+h1 {
+  margin: 0; font-weight: 600; letter-spacing: -0.015em; line-height: 1.05;
+  font-size: clamp(2rem, 6vmin, 10rem);   /* the headline */
+}
+h1 .ar { display: inline-block; margin-inline-start: .5em; font-weight: 400; color: var(--ink-dim); font-size: .62em; }
+.sub { margin: .6vh 0 0; color: var(--ink-dim); font-size: clamp(.9rem, 2vmin, 3.4rem); }
+.sub .ar { margin-inline-start: .8em; }
+
+.total { text-align: end; line-height: 1; }
+.total-num {
+  display: block; font-weight: 600; font-size: clamp(2.2rem, 7vmin, 12rem);
+  font-variant-numeric: tabular-nums; letter-spacing: -0.02em;
+}
+.total-num.bump { animation: bump .6s ease; }
+@keyframes bump { 40% { transform: scale(1.08); color: var(--primary); } }
+.total-label { display: block; color: var(--ink-dim); font-size: clamp(.85rem, 1.7vmin, 3rem); margin-top: .5vh; }
+.total-label .ar { margin-inline-start: .4em; }
+
+/* ---------- leaf field */
+.field { position: relative; overflow: hidden; }
+.leaves { position: absolute; inset: 0; }
+
+.wind { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.wind path {
+  fill: none; stroke: rgba(255,255,255,.75); stroke-linecap: round;
+  stroke-dasharray: 220 3780; animation: gustline linear infinite;   /* pathLength 2000: one streak, then a pause */
+}
+@keyframes gustline { from { stroke-dashoffset: 4000; } to { stroke-dashoffset: 0; } }
+
+.wleaf {
+  --rot: 0deg; --sway-d: 6s; --sway-delay: 0s; --wave: 0s;
+  position: absolute; transform: translate(-50%, -50%);
+  background: none; border: 0; padding: 0; cursor: pointer;
+  display: grid; justify-items: center; gap: .2em;
+  font-size: calc(var(--leaf) * .22); color: var(--ink);
+  transition: opacity .6s ease, filter .6s ease;
+}
+.wleaf .sway {
+  display: block; width: var(--leaf); height: var(--leaf);
+  transform-origin: 15% 85%;            /* sway from the stalk */
+  animation: sway var(--sway-d) ease-in-out var(--sway-delay) infinite alternate;
+}
+.wleaf .tilt { display: block; width: 100%; height: 100%; transform: rotate(var(--rot)); transition: transform .25s ease; }
+.wleaf .leaf { width: 100%; height: 100%; display: block; filter: drop-shadow(0 2px 3px rgba(23,53,42,.18)); }
+.wleaf .name {
+  font-weight: 500; white-space: nowrap; max-width: calc(var(--leaf) * 1.9);
+  overflow: hidden; text-overflow: ellipsis; line-height: 1.2;
+  background: rgba(255,255,255,.55); border-radius: 999px; padding: .1em .55em;
+}
+.wleaf:hover .tilt, .wleaf:focus-visible .tilt { transform: rotate(var(--rot)) scale(1.18); }
+.wleaf:hover { z-index: 5; }
+.wleaf.hidden { opacity: 0; }
+
+@keyframes sway {
+  from { transform: rotate(-4deg); }
+  to   { transform: rotate(5deg); }
+}
+
+/* a breeze travels across the wall left to right */
+.leaves.breeze .wleaf .tilt { animation: breeze 2.6s ease-in-out var(--wave) 1; }
+@keyframes breeze {
+  0%, 100% { transform: rotate(var(--rot)) translate(0, 0); }
+  30% { transform: rotate(calc(var(--rot) + 14deg)) translate(6%, -4%); }
+  60% { transform: rotate(calc(var(--rot) - 6deg)) translate(-2%, 1%); }
+}
+
+/* removed by staff: withers and falls */
+.wleaf.wither { pointer-events: none; animation: wither 1.1s ease-in forwards; }
+@keyframes wither {
+  0%   { filter: saturate(1); opacity: 1; }
+  30%  { filter: saturate(.1) brightness(.8); opacity: 1; transform: translate(-50%, -50%) rotate(8deg); }
+  100% { filter: saturate(0) brightness(.7); opacity: 0; transform: translate(-50%, 40%) rotate(40deg); }
+}
+/* too many leaves: the oldest drift away */
+.wleaf.drift { pointer-events: none; animation: drift 2.4s ease-in forwards; }
+@keyframes drift { to { opacity: 0; transform: translate(60%, -120%) rotate(30deg); } }
+
+/* other leaves dim while one is in front */
+.wall.dimmed .wleaf { opacity: .35; filter: saturate(.6); }
+
+.flyer {
+  position: fixed; left: 0; top: 0; z-index: 40; pointer-events: none;
+  width: var(--leaf); height: var(--leaf); will-change: transform;
+}
+.flyer .leaf { width: 100%; height: 100%; display: block; filter: drop-shadow(0 4px 8px rgba(23,53,42,.25)); }
+
+.empty {
+  position: absolute; inset: 0; margin: auto; height: fit-content; max-width: 34ch;
+  text-align: center; color: var(--ink-dim); font-size: clamp(1rem, 2.6vmin, 2.2rem);
+}
+.empty .ar { display: block; margin-top: .4em; }
+
+/* ---------- QR panel (bottom corner of the field; leaves avoid it) */
+.qr {
+  position: absolute; right: 2.4vw; bottom: calc(var(--grass-h) * 0.85); z-index: 10;   /* sits above the grass */
+  width: clamp(150px, 22vmin, 560px);
+  background: var(--surface); border-radius: 18px; padding: 1.6vmin;
+  box-shadow: var(--shadow); text-align: center;
+}
+.qr-code { aspect-ratio: 1; width: 100%; }
+.qr-code svg { width: 100%; height: 100%; display: block; }
+.qr-text { margin: 1vmin 0 0; font-weight: 500; font-size: clamp(.8rem, 1.7vmin, 2.8rem); line-height: 1.3; }
+.qr-text .ar { display: block; font-weight: 400; }
+.qr-url { margin: .4vmin 0 0; color: var(--ink-dim); font-size: clamp(.65rem, 1.2vmin, 2rem); overflow-wrap: anywhere; }
+
+/* ---------- grass along the bottom, in front of the field */
+.grass {
+  position: absolute; left: 0; right: 0; bottom: 0; height: var(--grass-h);
+  z-index: 20; pointer-events: none;
+}
+.grass svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.grass .gust, .grass .clump { transform-box: fill-box; transform-origin: 50% 100%; }
+.grass .clump { animation: grass-sway var(--gd, 5s) ease-in-out var(--gdelay, 0s) infinite alternate; }
+@keyframes grass-sway {
+  from { transform: skewX(-4deg); }
+  to   { transform: skewX(4deg); }
+}
+.grass.breeze .gust { animation: grass-gust 2.6s ease-in-out var(--wave) 1; }
+@keyframes grass-gust {
+  0%, 100% { transform: skewX(0); }
+  35% { transform: skewX(14deg); }
+  65% { transform: skewX(-3deg); }
+}
+
+/* ---------- front card (click) and spotlight (new pledge) */
+.focus {
+  position: fixed; inset: 0; z-index: 30; display: grid; place-items: center;
+  background: rgba(214, 231, 209, .45);
+}
+.card {
+  --c: var(--primary);
+  width: min(78vw, 68vmin); background: var(--surface); border-radius: 28px;
+  box-shadow: 0 10px 40px rgba(23,53,42,.18); text-align: center;
+  padding: 4vmin 4.5vmin 3.6vmin; border-top: 10px solid var(--c);
+  animation: cardin .45s cubic-bezier(.2,.9,.3,1.2);
+}
+.focus.closing .card { animation: cardout .35s ease-in forwards; }
+@keyframes cardin { from { transform: scale(.7); opacity: 0; } }
+@keyframes cardout { to { transform: scale(.85); opacity: 0; } }
+.card-leaf { width: 16vmin; height: 16vmin; margin: 0 auto; }
+.card-leaf .leaf { width: 100%; height: 100%; display: block; animation: sway 3s ease-in-out infinite alternate; transform-origin: 15% 85%; }
+.card-name { margin: 1.6vmin 0 .4vmin; font-weight: 600; font-size: clamp(1.4rem, 4.4vmin, 7.5rem); line-height: 1.15; }
+.card-text { margin: 0; font-size: clamp(1.1rem, 3.4vmin, 6rem); line-height: 1.35; overflow-wrap: anywhere; }
+.card-meta { margin: 2vmin 0 0; color: var(--ink-dim); font-size: clamp(.8rem, 1.9vmin, 3.2rem); display: flex; justify-content: center; gap: 1.4em; }
+
+.status {
+  position: fixed; left: 2vw; bottom: calc(var(--grass-h) + 1.5vh); z-index: 50;   /* bottom-left, above the grass */
+  background: #FFF6DB; color: #5C4600; border: 1px solid #EED48A;
+  border-radius: 999px; padding: .5em 1.2em; font-size: clamp(.8rem, 1.6vmin, 2.4rem);
+}
+
+/* ---------- portrait / narrow windows: stack the panels */
+@media (max-aspect-ratio: 1/1) {
+  :root { --leaf: clamp(40px, 8.5vmin, 120px); }
+  .head { grid-template-columns: 1fr auto; padding: 2vh 4vw 1vh; }
+  h1 { font-size: clamp(1.8rem, 7vmin, 6rem); }
+  h1 .ar { display: block; margin: .2em 0 0; text-align: left; }
+  .sub .ar { display: block; margin: .1em 0 0; text-align: left; }
+  .qr { right: 50%; transform: translateX(50%); width: clamp(140px, 30vmin, 300px); }
+}

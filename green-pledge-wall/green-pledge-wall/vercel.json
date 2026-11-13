@@ -1,0 +1,12 @@
+{
+  "cleanUrls": true,
+  "redirects": [
+    { "source": "/", "destination": "/pledge", "permanent": false }
+  ],
+  "headers": [
+    {
+      "source": "/(config.js|shared/pledges-data.js)",
+      "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+    }
+  ]
+}
