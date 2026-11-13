@@ -48,12 +48,21 @@ h1 .ar { display: inline-block; margin-inline-start: .5em; font-weight: 400; col
 .field { position: relative; overflow: hidden; }
 .leaves { position: absolute; inset: 0; }
 
-.wind { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-.wind path {
-  fill: none; stroke: rgba(255,255,255,.75); stroke-linecap: round;
-  stroke-dasharray: 220 3780; animation: gustline linear infinite;   /* pathLength 2000: one streak, then a pause */
+.wind { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+/* each streak is drawn once, then glides across: only transform and opacity change */
+.streak {
+  position: absolute; left: 0; width: 26vw; height: 3vh;
+  will-change: transform, opacity;
+  animation: streak linear infinite;
 }
-@keyframes gustline { from { stroke-dashoffset: 4000; } to { stroke-dashoffset: 0; } }
+.streak svg { display: block; width: 100%; height: 100%; }
+@keyframes streak {
+  0%   { transform: translate3d(-30vw, 0, 0); opacity: 0; }
+  8%   { opacity: .9; }
+  42%  { opacity: .9; }
+  50%  { transform: translate3d(105vw, 0, 0); opacity: 0; }
+  100% { transform: translate3d(105vw, 0, 0); opacity: 0; }
+}
 
 .wleaf {
   --rot: 0deg; --sway-d: 6s; --sway-delay: 0s; --wave: 0s;
@@ -67,7 +76,9 @@ h1 .ar { display: inline-block; margin-inline-start: .5em; font-weight: 400; col
   display: block; width: var(--leaf); height: var(--leaf);
   transform-origin: 15% 85%;            /* sway from the stalk */
   animation: sway var(--sway-d) ease-in-out var(--sway-delay) infinite alternate;
+  will-change: transform;
 }
+.wleaf .gust { display: block; width: 100%; height: 100%; transform-origin: 15% 85%; }
 .wleaf .tilt { display: block; width: 100%; height: 100%; transform: rotate(var(--rot)); transition: transform .25s ease; }
 .wleaf .leaf { width: 100%; height: 100%; display: block; filter: drop-shadow(0 2px 3px rgba(23,53,42,.18)); }
 .wleaf .name {
@@ -85,11 +96,11 @@ h1 .ar { display: inline-block; margin-inline-start: .5em; font-weight: 400; col
 }
 
 /* a breeze travels across the wall left to right */
-.leaves.breeze .wleaf .tilt { animation: breeze 2.6s ease-in-out var(--wave) 1; }
-@keyframes breeze {
-  0%, 100% { transform: rotate(var(--rot)) translate(0, 0); }
-  30% { transform: rotate(calc(var(--rot) + 14deg)) translate(6%, -4%); }
-  60% { transform: rotate(calc(var(--rot) - 6deg)) translate(-2%, 1%); }
+.leaves.breeze .wleaf .gust { animation: breeze 2.6s ease-in-out var(--wave) 1; }
+@keyframes breeze {   /* plain values (no variables) so it runs smoothly on the graphics chip */
+  0%, 100% { transform: rotate(0deg) translate(0, 0); }
+  30% { transform: rotate(14deg) translate(6%, -4%); }
+  60% { transform: rotate(-6deg) translate(-2%, 1%); }
 }
 
 /* removed by staff: withers and falls */
@@ -136,14 +147,19 @@ h1 .ar { display: inline-block; margin-inline-start: .5em; font-weight: 400; col
   position: absolute; left: 0; right: 0; bottom: 0; height: var(--grass-h);
   z-index: 20; pointer-events: none;
 }
-.grass svg { display: block; width: 100%; height: 100%; overflow: visible; }
-.grass .gust, .grass .clump { transform-box: fill-box; transform-origin: 50% 100%; }
-.grass .clump { animation: grass-sway var(--gd, 5s) ease-in-out var(--gdelay, 0s) infinite alternate; }
+.patch { position: absolute; bottom: 0; height: 100%; }
+.patch-sway {
+  width: 100%; height: 100%; transform-origin: 50% 100%;
+  animation: grass-sway 5s ease-in-out infinite alternate;
+  will-change: transform;
+}
+.patch-sway svg { display: block; overflow: visible; }
 @keyframes grass-sway {
   from { transform: skewX(-4deg); }
   to   { transform: skewX(4deg); }
 }
-.grass.breeze .gust { animation: grass-gust 2.6s ease-in-out var(--wave) 1; }
+.patch { transform-origin: 50% 100%; }
+.grass.breeze .patch { animation: grass-gust 2.6s ease-in-out var(--wave) 1; }
 @keyframes grass-gust {
   0%, 100% { transform: skewX(0); }
   35% { transform: skewX(14deg); }

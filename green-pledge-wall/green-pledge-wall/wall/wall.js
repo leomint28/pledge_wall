@@ -98,7 +98,9 @@
     b.style.setProperty("--sway-d", rand(4.5, 8).toFixed(2) + "s");
     b.style.setProperty("--sway-delay", (-rand(0, 8)).toFixed(2) + "s");
     b.style.setProperty("--wave", (pos.x / 100 * 1.6).toFixed(2) + "s");   // breeze travels left to right
-    b.innerHTML = '<span class="sway"><span class="tilt">' + D.leafSVG(colorOf(row)) + '</span></span><span class="name"></span>';
+    // sway (constant) > gust (breeze) > tilt (fixed angle): each layer animates one plain transform,
+    // so the graphics chip can move them without redrawing anything
+    b.innerHTML = '<span class="sway"><span class="gust"><span class="tilt">' + D.leafSVG(colorOf(row)) + '</span></span></span><span class="name"></span>';
     b.querySelector(".name").textContent = row.display_name;
     b.setAttribute("aria-label", row.display_name + ": " + D.pledgeText(row));
     b.addEventListener("click", function () { openCard(row, true); });
@@ -306,7 +308,9 @@
   function countAdd(row) { counts[row.topic] = (counts[row.topic] || 0) + 1; renderCounts(true); }
   var countRemoved = function () {};
 
-  // ---------- grass along the bottom (clumps of blades that sway)
+  // ---------- grass along the bottom
+  // The grass is cut into patches. Each patch is drawn once and then only
+  // moved (skewed from its base) by the graphics chip, so it stays smooth on a TV.
   function buildGrass() {
     var box = $("grass");
     var W = Math.ceil(box.clientWidth), H = Math.ceil(box.clientHeight);
@@ -317,41 +321,44 @@
       { colors: ["#4C8A43", "#5A9A4E"], hMin: 0.45, hMax: 0.75, step: 11, wMin: 9,  wMax: 16 }
     ];
     var scale = Math.max(1, W / 1600);          // wider blades on big screens
-    var out = '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + " " + H + '">';
-    layers.forEach(function (L) {
-      var step = L.step * scale, clump = "", cx = 0, count = 0;
-      for (var x = -10; x < W + 10; x += step * rand(0.6, 1.4)) {
-        var h = H * rand(L.hMin, L.hMax), w = rand(L.wMin, L.wMax) * scale, lean = rand(-0.35, 0.35) * h;
-        var tipX = x + w / 2 + lean, y0 = H + 2;
-        clump += '<path fill="' + L.colors[Math.random() < 0.5 ? 0 : 1] + '" d="M' + x.toFixed(1) + " " + y0 +
-          " Q" + (x + lean * 0.35).toFixed(1) + " " + (y0 - h * 0.55).toFixed(1) + " " + tipX.toFixed(1) + " " + (y0 - h).toFixed(1) +
-          " Q" + (x + w + lean * 0.3).toFixed(1) + " " + (y0 - h * 0.5).toFixed(1) + " " + (x + w).toFixed(1) + " " + y0 + 'Z"/>';
-        if (!count) cx = x;
-        if (++count === 6) {   // 6 blades sway together
-          // outer group: breeze ripple; inner group: gentle constant sway
-          out += '<g class="gust" style="--wave:' + (cx / W * 1.6).toFixed(2) + 's"><g class="clump" style="--gd:' +
-            rand(3.5, 6.5).toFixed(2) + "s;--gdelay:" + (-rand(0, 6)).toFixed(2) + 's">' + clump + "</g></g>";
-          clump = ""; count = 0;
+    var patchW = Math.max(120, Math.round(W / 11));   // ~11 patches per layer: fewer moving pieces
+    var html = "";
+    layers.forEach(function (L, li) {
+      var step = L.step * scale;
+      for (var px = -patchW / 2 * (li % 2); px < W; px += patchW) {
+        var paths = "";
+        for (var x = 0; x < patchW; x += step * rand(0.6, 1.4)) {
+          var h = H * rand(L.hMin, L.hMax), w = rand(L.wMin, L.wMax) * scale, lean = rand(-0.3, 0.3) * h;
+          var tipX = x + w / 2 + lean, y0 = H + 2;
+          paths += '<path fill="' + L.colors[Math.random() < 0.5 ? 0 : 1] + '" d="M' + x.toFixed(1) + " " + y0 +
+            " Q" + (x + lean * 0.35).toFixed(1) + " " + (y0 - h * 0.55).toFixed(1) + " " + tipX.toFixed(1) + " " + (y0 - h).toFixed(1) +
+            " Q" + (x + w + lean * 0.3).toFixed(1) + " " + (y0 - h * 0.5).toFixed(1) + " " + (x + w).toFixed(1) + " " + y0 + 'Z"/>';
         }
+        var center = (px + patchW / 2) / W;
+        html += '<div class="patch" style="left:' + px.toFixed(0) + "px;width:" + patchW + "px;--wave:" + (center * 1.6).toFixed(2) + 's">' +
+          '<div class="patch-sway" style="animation-duration:' + rand(3.5, 6.5).toFixed(2) + "s;animation-delay:" + (-rand(0, 6)).toFixed(2) + 's">' +
+          '<svg width="' + patchW + '" height="' + H + '" viewBox="0 0 ' + patchW + " " + H + '">' + paths + "</svg></div></div>";
       }
-      if (clump) out += '<g class="gust" style="--wave:1.6s"><g class="clump" style="--gd:5s;--gdelay:0s">' + clump + "</g></g>";
     });
-    box.innerHTML = out + "</svg>";
+    box.innerHTML = html;
   }
 
   // ---------- wind streaks + breeze
   function buildWind() {
-    var svg = $("wind");
-    svg.setAttribute("viewBox", "0 0 1000 600");
+    var box = $("wind");
     var html = "";
     for (var i = 0; i < 7; i++) {
-      var y = 60 + i * 80 + rand(-20, 20);
-      var a = rand(-25, 25), b2 = rand(-25, 25);
-      html += '<path pathLength="2000" vector-effect="non-scaling-stroke" ' +
-        'd="M-50 ' + y + " C 250 " + (y + a) + ", 450 " + (y - a) + ", 650 " + (y + b2) + " S 950 " + (y - b2) + ", 1100 " + y + '" ' +
-        'style="stroke-width:' + rand(1.2, 2.6).toFixed(1) + "px;animation-duration:" + rand(9, 17).toFixed(1) + "s;animation-delay:" + (-rand(0, 17)).toFixed(1) + 's"/>';
+      var y = 6 + i * 13 + rand(-3, 3);                 // % from the top of the field
+      var a = rand(-6, 6);
+      html += '<div class="streak" style="top:' + y.toFixed(1) + "%;animation-duration:" + rand(9, 17).toFixed(1) +
+        "s;animation-delay:" + (-rand(0, 17)).toFixed(1) + 's">' +
+        '<svg viewBox="0 0 300 30" preserveAspectRatio="none"><defs><linearGradient id="wg' + i + '">' +
+        '<stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".85"/>' +
+        '<stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>' +
+        '<path d="M2 15 C 70 ' + (15 + a) + ", 130 " + (15 - a) + ", 200 " + (15 + a / 2) + " S 280 " + (15 - a / 2) + ', 298 15" ' +
+        'fill="none" stroke="url(#wg' + i + ')" stroke-width="' + rand(1.6, 2.8).toFixed(1) + '" stroke-linecap="round"/></svg></div>';
     }
-    svg.innerHTML = html;
+    box.innerHTML = html;
   }
   function breeze() {
     if (REDUCED) return;
