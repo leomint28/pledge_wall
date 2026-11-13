@@ -76,6 +76,8 @@
       var x = rand(pad, fr.width - pad), y = rand(pad, fr.height - grassTop() - pad * 1.4);
       var ax = fr.left + x, ay = fr.top + y;
       if (ax > qr.left - lp && ax < qr.right + lp && ay > qr.top - lp && ay < qr.bottom + lp) continue;
+      var rb = $("robot").getBoundingClientRect();   // keep clear of the robot too
+      if (ax > rb.left - lp && ax < rb.right + lp && ay > rb.top - lp && ay < rb.bottom + lp) continue;
       var score = Infinity;
       leaves.forEach(function (l) {
         var dx = (l.x / 100) * fr.width - x, dy = (l.y / 100) * fr.height - y;
@@ -193,6 +195,7 @@
         if (!leaves.has(row.id)) { f.remove(); return; }   // deleted meanwhile
         f.style.visibility = "hidden";
         showCard(row, false);
+        if (window.WallRobot) window.WallRobot.react("happy");
         return wait(holdMs);
       })
       .then(function () {

@@ -4,6 +4,7 @@
   --wall-bg-2: #C5DCC0;
   --leaf: clamp(40px, 7.4vmin, 240px);   /* leaf size scales with the screen */
   --grass-h: clamp(60px, 12vh, 320px);    /* grass along the bottom */
+  --robot-w: clamp(90px, 15vmin, 380px);  /* robot in the bottom-left corner */
 }
 
 html, body { height: 100%; overflow: hidden; }
@@ -188,7 +189,7 @@ h1 .ar { display: inline-block; margin-inline-start: .5em; font-weight: 400; col
 .card-meta { margin: 2vmin 0 0; color: var(--ink-dim); font-size: clamp(.8rem, 1.9vmin, 3.2rem); display: flex; justify-content: center; gap: 1.4em; }
 
 .status {
-  position: fixed; left: 2vw; bottom: calc(var(--grass-h) + 1.5vh); z-index: 50;   /* bottom-left, above the grass */
+  position: fixed; left: calc(2vw + var(--robot-w) + 1.5vw); bottom: calc(var(--grass-h) + 1.5vh); z-index: 50;   /* next to the robot, above the grass */
   background: #FFF6DB; color: #5C4600; border: 1px solid #EED48A;
   border-radius: 999px; padding: .5em 1.2em; font-size: clamp(.8rem, 1.6vmin, 2.4rem);
 }
@@ -201,4 +202,96 @@ h1 .ar { display: inline-block; margin-inline-start: .5em; font-weight: 400; col
   h1 .ar { display: block; margin: .2em 0 0; text-align: left; }
   .sub .ar { display: block; margin: .1em 0 0; text-align: left; }
   .qr { right: 50%; transform: translateX(50%); width: clamp(140px, 30vmin, 300px); }
+}
+
+/* ---------- robot (bottom-left, standing in the grass) */
+.robot {
+  position: absolute; left: 2.4vw; bottom: calc(var(--grass-h) * 0.12); z-index: 25;   /* in front of the grass */
+  width: var(--robot-w); aspect-ratio: 120 / 160; pointer-events: none;
+}
+.robot > svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.robot g { transform-box: fill-box; }
+
+.r-shell  { fill: #F7FBF5; stroke: #2F5D46; stroke-width: 2.5; }
+.r-dark   { fill: #2F5D46; }
+.r-screen { fill: #1F4A38; }
+.r-glow   { fill: #A8F0C8; }
+.r-cheek  { fill: #F2A6A0; opacity: .55; }
+.r-line   { fill: none; stroke: #A8F0C8; stroke-width: 3.2; stroke-linecap: round; }
+.r-mouth  { fill: none; stroke: #A8F0C8; stroke-width: 2.6; stroke-linecap: round; }
+.r-mouth-big { fill: #A8F0C8; opacity: 0; }
+.r-shadow { fill: rgba(23,53,42,.18); }
+.r-happy-eyes { opacity: 0; }
+
+/* pivots */
+.r-all    { transform-origin: 50% 100%; }
+.r-head   { transform-origin: 50% 90%; transition: transform .5s cubic-bezier(.3,.7,.3,1); }
+.r-body   { transform-origin: 50% 100%; }
+.r-arm-l, .r-arm-r { transform-origin: 50% 8%; }
+.r-sprout { transform-origin: 50% 100%; }
+.r-eyes   { transition: transform .35s ease; }
+.r-eye    { transform-origin: 50% 50%; }
+
+/* grass tuft in front of the feet: its own layer, sways like the rest of the grass */
+.r-tuft {
+  position: absolute; left: 0; right: 0; bottom: -2%; height: 20%;
+  transform-origin: 50% 100%; will-change: transform;
+  animation: grass-sway 4.5s ease-in-out infinite alternate;
+}
+.r-tuft svg { width: 100%; height: 100%; display: block; overflow: visible; }
+
+/* blink */
+.robot.blink .r-eye { animation: r-blink .18s ease-in-out; }
+@keyframes r-blink { 50% { transform: scaleY(.1); } }
+
+/* glance left / right */
+.robot.look-l .r-eyes { transform: translateX(-5px); }
+.robot.look-r .r-eyes, .robot.look-r-hold .r-eyes { transform: translateX(5px); }
+.robot.look-l .r-head { transform: rotate(-4deg); }
+.robot.look-r .r-head, .robot.look-r-hold .r-head { transform: rotate(4deg); }
+
+/* head tilt */
+.robot.tilt .r-head   { transform: rotate(-10deg); }
+.robot.tilt-r .r-head { transform: rotate(9deg); }
+
+/* wave */
+.robot.wave .r-arm-r { animation: r-wave 1.7s ease-in-out; }
+@keyframes r-wave {
+  0%, 100% { transform: rotate(0); }
+  20% { transform: rotate(-150deg); }
+  35% { transform: rotate(-125deg); }
+  50% { transform: rotate(-155deg); }
+  65% { transform: rotate(-125deg); }
+  80% { transform: rotate(-150deg); }
+}
+
+/* hop */
+.robot.hop .r-all { animation: r-hop .7s cubic-bezier(.3,.7,.4,1); }
+.robot.hop .r-shadow { animation: r-shadow .7s ease; transform-origin: 50% 50%; transform-box: fill-box; }
+@keyframes r-hop {
+  0%   { transform: translateY(0) scaleY(1); }
+  20%  { transform: translateY(0) scaleY(.94); }
+  50%  { transform: translateY(-9%) scaleY(1.03); }
+  80%  { transform: translateY(0) scaleY(.97); }
+  100% { transform: translateY(0) scaleY(1); }
+}
+@keyframes r-shadow { 50% { transform: scale(.7); opacity: .6; } }
+
+/* sprout wiggle */
+.robot.sprout .r-sprout { animation: r-wiggle 1.4s ease-in-out; }
+@keyframes r-wiggle {
+  0%, 100% { transform: rotate(0); }
+  20% { transform: rotate(-16deg); } 40% { transform: rotate(13deg); }
+  60% { transform: rotate(-9deg); }  80% { transform: rotate(5deg); }
+}
+
+/* happy: ^^ eyes and a big smile */
+.robot.happy .r-eye { opacity: 0; }
+.robot.happy .r-happy-eyes { opacity: 1; }
+.robot.happy .r-mouth { opacity: 0; }
+.robot.happy .r-mouth-big { opacity: 1; }
+.robot.happy .r-cheek { opacity: .9; }
+
+@media (max-aspect-ratio: 1/1) {
+  :root { --robot-w: clamp(80px, 18vmin, 240px); }
 }
