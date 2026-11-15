@@ -12,7 +12,7 @@
   var D = window.PLEDGE_DATA;
   var CFG = window.PLEDGE_CONFIG || {};
   var PAGE = 100;
-  var COLS = "id,created_at,display_name,preset_id,custom_text,topic,leaf_color,source,lang";
+  var COLS = "id,created_at,display_name,preset_id,custom_text,topic,leaf_color,source,lang,translation,translation_lang";
   var $ = function (id) { return document.getElementById(id); };
 
   $("brandLeaf").innerHTML = D.leafSVG("#4FA33A");
@@ -152,11 +152,13 @@
     var li = document.createElement("li");
     li.className = "row" + (isNew ? " new" : "");
     li.dataset.id = row.id;
+    li._row = row;   // kept so live updates can be merged into it
     li.innerHTML = D.leafSVG(colorOf(row)) +
-      '<div><p class="row-name"></p><p class="row-text" dir="auto"></p><p class="row-meta"><span></span><span></span><span></span></p></div>' +
+      '<div><p class="row-name"></p><p class="row-text" dir="auto"></p><p class="row-trans" dir="auto" hidden></p><p class="row-meta"><span></span><span></span><span></span></p></div>' +
       '<button type="button" class="del">Delete</button>';
     li.querySelector(".row-name").textContent = row.display_name;
     li.querySelector(".row-text").textContent = D.pledgeText(row);
+    setRowTranslation(li, row);
     var meta = li.querySelectorAll(".row-meta span");
     meta[0].textContent = topicName(row.topic);
     meta[1].textContent = row.source === "kiosk" ? "Tablet" : "Phone";
@@ -165,6 +167,12 @@
     btn.setAttribute("aria-label", "Delete pledge by " + row.display_name);
     btn.addEventListener("click", function () { askDelete(row, li, btn); });
     return li;
+  }
+
+  function setRowTranslation(li, row) {
+    var tr = D.pledgeTranslation(row), el = li.querySelector(".row-trans");
+    el.textContent = tr ? tr.text : "";
+    el.hidden = !tr;
   }
 
   // search: name, custom text, or the text of a preset
@@ -259,6 +267,10 @@
         loadStats();
         if (p.old && p.old.id) removeRow(p.old.id);
       })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "pledges" }, function (p) {
+        var li = p.new && document.querySelector('.row[data-id="' + p.new.id + '"]');
+        if (li) setRowTranslation(li, Object.assign(li._row || {}, p.new));   // a translation arrived
+      })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "settings" }, function (p) {
         if (p.new && typeof p.new.pledging_open === "boolean") renderPause(p.new.pledging_open);
       })
@@ -279,7 +291,7 @@
     var all = [], step = 1000;
     function page(from) {
       return sb.from("zayed_uni_leads")
-        .select("created_at,full_name,phone,email,interest_topic,source,lang,consent_text,consent_at,pledge_id,pledges(preset_id,custom_text,lang)")
+        .select("created_at,full_name,phone,email,interest_topic,source,lang,consent_text,consent_at,pledge_id,pledges(preset_id,custom_text,lang,translation,translation_lang)")
         .order("created_at", { ascending: true }).range(from, from + step - 1)
         .then(function (r) {
           if (r.error) throw r.error;
@@ -294,13 +306,13 @@
     btn.disabled = true;
     btn.textContent = "Preparing…";
     fetchAllLeads().then(function (rows) {
-      var head = ["Date", "Full name", "Phone", "Email", "Interested in", "Pledge", "Pledge status", "Source", "Language", "Consent text", "Consent time"];
+      var head = ["Date", "Full name", "Phone", "Email", "Interested in", "Pledge", "Pledge translation", "Pledge status", "Source", "Language", "Consent text", "Consent time"];
       var lines = [head.join(",")];
       rows.forEach(function (r) {
         var p = r.pledges;
         lines.push([
           new Date(r.created_at).toLocaleString("en-GB"), r.full_name, r.phone, r.email, topicName(r.interest_topic),
-          p ? D.pledgeText(p) : "", p ? "On the wall" : "Deleted from the wall",
+          p ? D.pledgeText(p) : "", p && D.pledgeTranslation(p) ? D.pledgeTranslation(p).text : "", p ? "On the wall" : "Deleted from the wall",
           r.source === "kiosk" ? "Tablet" : "Phone", r.lang === "ar" ? "Arabic" : "English",
           r.consent_text, new Date(r.consent_at).toLocaleString("en-GB")
         ].map(csvCell).join(","));

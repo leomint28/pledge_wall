@@ -15,7 +15,7 @@
   var params = new URLSearchParams(location.search);
   var DEMO = params.get("demo");
   var REDUCED = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  var COLS = "id,created_at,display_name,preset_id,custom_text,topic,leaf_color,source,lang";
+  var COLS = "id,created_at,display_name,preset_id,custom_text,topic,leaf_color,source,lang,translation,translation_lang";
 
   var SPOT_MS = 4000;        // normal spotlight
   var GUST_SPOT_MS = 1500;   // spotlight in gust mode
@@ -76,7 +76,8 @@
       var x = rand(pad, fr.width - pad), y = rand(pad, fr.height - grassTop() - pad * 1.4);
       var ax = fr.left + x, ay = fr.top + y;
       if (ax > qr.left - lp && ax < qr.right + lp && ay > qr.top - lp && ay < qr.bottom + lp) continue;
-      var rb = $("robot").getBoundingClientRect();   // keep clear of the robot too
+      // keep clear of the robot's home spot (even while it is out for a walk)
+      var rb = window.WallRobot ? window.WallRobot.homeRect() : $("robot").getBoundingClientRect();
       if (ax > rb.left - lp && ax < rb.right + lp && ay > rb.top - lp && ay < rb.bottom + lp) continue;
       var score = Infinity;
       leaves.forEach(function (l) {
@@ -263,6 +264,7 @@
     $("cardName").textContent = row.display_name;
     $("cardText").textContent = D.pledgeText(row);
     $("cardText").lang = row.lang;
+    showTranslation(row);
     var time = new Date(row.created_at).toLocaleTimeString(row.lang === "ar" ? "ar-AE" : "en-GB", { hour: "2-digit", minute: "2-digit" });
     $("cardMeta").innerHTML = "<span></span><span></span>";
     $("cardMeta").firstChild.textContent = topicName(row.topic, row.lang);
@@ -270,6 +272,20 @@
     $("focus").classList.remove("closing");
     $("focus").hidden = false;
     wallEl.classList.toggle("dimmed", manual);
+  }
+  // small translation line under the message (preset: built in; custom: from Groq)
+  function showTranslation(row) {
+    var tr = D.pledgeTranslation(row), el = $("cardTrans");
+    el.textContent = tr ? tr.text : "";
+    el.lang = tr ? tr.lang : "";
+    el.hidden = !tr;
+  }
+  // a translation arrived for a pledge (live UPDATE)
+  function updateRow(row) {
+    var l = leaves.get(row.id);
+    if (l) Object.assign(l.row, row);   // in place, so a pledge mid-flight to the spotlight gets it too
+    queue.forEach(function (q) { if (q.id === row.id) Object.assign(q, row); });
+    if (shownId === row.id) showTranslation(l ? l.row : row);
   }
   function hideCard() {
     return new Promise(function (resolve) {
@@ -454,6 +470,7 @@
     sb.channel("pledge-wall")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "pledges" }, function (p) { enqueue(p.new); })
       .on("postgres_changes", { event: "DELETE", schema: "public", table: "pledges" }, function (p) { if (p.old && p.old.id) remove(p.old.id); })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "pledges" }, function (p) { if (p.new && p.new.id) updateRow(p.new); })
       .subscribe(function (st) {
         if (st === "SUBSCRIBED") { status(""); resync(); }
         else if (st === "CHANNEL_ERROR" || st === "TIMED_OUT" || st === "CLOSED") status("Reconnecting to live pledges…");
@@ -468,11 +485,11 @@
     var names = ["Mariam", "Omar", "Fatima", "Ahmed", "Sara", "Khalid", "Noura", "Yousef", "Aisha", "Hamdan",
       "Layla", "Rashid", "Hessa", "Saeed", "Maitha", "Zayed", "سارة", "محمد", "شما", "علي", "ميثاء", "حمدان"];
     var customs = [
-      { t: "I will plant a ghaf tree with my family", l: "en" },
-      { t: "I'll bring my own cup to the campus café", l: "en" },
-      { t: "سأزرع شجرة في حديقة الجامعة", l: "ar" },
-      { t: "No more plastic bags when I shop", l: "en" },
-      { t: "سأقلل استخدام المكيف عندما لا أحتاجه", l: "ar" }
+      { t: "I will plant a ghaf tree with my family", l: "en", tr: "سأزرع شجرة غاف مع عائلتي" },
+      { t: "I'll bring my own cup to the campus café", l: "en", tr: "سأحضر كوبي الخاص إلى مقهى الجامعة" },
+      { t: "سأزرع شجرة في حديقة الجامعة", l: "ar", tr: "I will plant a tree in the university garden" },
+      { t: "No more plastic bags when I shop", l: "en", tr: "لا مزيد من الأكياس البلاستيكية عند التسوق" },
+      { t: "سأقلل استخدام المكيف عندما لا أحتاجه", l: "ar", tr: "I will use the air conditioner less when I don't need it" }
     ];
     var n = 0, all = [];
     function fake() {
@@ -483,6 +500,7 @@
       if (Math.random() < 0.25) {
         var c = customs[Math.floor(Math.random() * customs.length)];
         row.custom_text = c.t; row.preset_id = null; row.topic = "custom"; row.lang = c.l;
+        (function (r, tr) { setTimeout(function () { updateRow({ id: r.id, translation: tr, translation_lang: c.l === "ar" ? "en" : "ar" }); }, 1200); })(row, c.tr);
         row.leaf_color = D.SWATCHES[Math.floor(Math.random() * D.SWATCHES.length)].color;
       } else {
         var p = D.PRESETS[Math.floor(Math.random() * D.PRESETS.length)];
@@ -521,6 +539,7 @@
       onScreen: function () { return Array.from(leaves.keys()); },
       queueLength: function () { return queue.length; },
       created: function () { return all.length; },
+      update: updateRow,
       capacity: capacity
     };
   }

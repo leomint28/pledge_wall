@@ -1,8 +1,11 @@
 /* =====================================================================
    Little robot in the bottom-left corner of the wall.
    Idle: blinks, glances, tilts its head, waves, hops, wiggles its sprout.
+   Now and then it walks sideways to the right, stops just before the QR
+   panel, looks around, waves, and walks back to its spot.
    window.WallRobot.react("happy") when a new pledge arrives.
-   Each move is a CSS class on #robot; only transforms animate.
+   Moves are CSS classes on #robot; the walk slides the whole robot
+   (one already-drawn layer), so it stays smooth.
    ===================================================================== */
 (function () {
   "use strict";
@@ -11,17 +14,18 @@
   if (!el) return;
   var REDUCED = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+  var WALK_FIRST_MS = [30000, 50000];   // first stroll after 30–50 s
+  var WALK_EVERY_MS = [60000, 120000];  // then every 1–2 minutes
+
   // Drawn in a 120 x 160 box. Parts that move are in their own groups.
   el.innerHTML =
     '<svg viewBox="0 0 120 160" aria-hidden="true">' +
       '<ellipse class="r-shadow" cx="60" cy="154" rx="30" ry="4.5"/>' +
       '<g class="r-all">' +
-        // legs and feet
-        '<rect x="44" y="128" width="10" height="20" rx="5" class="r-dark"/>' +
-        '<rect x="66" y="128" width="10" height="20" rx="5" class="r-dark"/>' +
-        '<rect x="38" y="144" width="20" height="9" rx="4.5" class="r-dark"/>' +
-        '<rect x="62" y="144" width="20" height="9" rx="4.5" class="r-dark"/>' +
-        // arms (left one rests, right one waves) – pivot at the shoulder
+        // legs and feet (each leg steps on its own when walking)
+        '<g class="r-leg-l"><rect x="44" y="128" width="10" height="20" rx="5" class="r-dark"/><rect x="38" y="144" width="20" height="9" rx="4.5" class="r-dark"/></g>' +
+        '<g class="r-leg-r"><rect x="66" y="128" width="10" height="20" rx="5" class="r-dark"/><rect x="62" y="144" width="20" height="9" rx="4.5" class="r-dark"/></g>' +
+        // arms – pivot at the shoulder
         '<g class="r-arm-l"><rect x="20" y="96" width="11" height="30" rx="5.5" class="r-shell"/><circle cx="25.5" cy="127" r="5.5" class="r-dark"/></g>' +
         '<g class="r-arm-r"><rect x="89" y="96" width="11" height="30" rx="5.5" class="r-shell"/><circle cx="94.5" cy="127" r="5.5" class="r-dark"/></g>' +
         // body with a leaf on the chest
@@ -57,22 +61,14 @@
           '</g>' +
         '</g>' +
       '</g>' +
-    '</svg>' +
-    // a tuft of grass in front of the feet, in its own layer so its sway never redraws the robot
-    '<div class="r-tuft"><svg viewBox="0 130 120 32" preserveAspectRatio="none">' + tuft() + '</svg></div>';
+    '</svg>';
 
-  function tuft() {
-    var out = "", colors = ["#4C8A43", "#5A9A4E", "#6FAA5D"];
-    for (var x = 14; x < 106; x += 4 + Math.random() * 4) {
-      var h = 10 + Math.random() * 12, w = 4 + Math.random() * 3, lean = (Math.random() - .5) * 8;
-      out += '<path fill="' + colors[Math.floor(Math.random() * 3)] + '" d="M' + x.toFixed(1) + ' 162 Q' +
-        (x + lean * .4).toFixed(1) + " " + (162 - h * .55).toFixed(1) + " " + (x + w / 2 + lean).toFixed(1) + " " + (162 - h).toFixed(1) +
-        " Q" + (x + w + lean * .3).toFixed(1) + " " + (162 - h * .5).toFixed(1) + " " + (x + w).toFixed(1) + ' 162Z"/>';
-    }
-    return out;
-  }
+  var busy = false;      // a reaction or walk is running: no idle moves
+  var walking = false;   // legs are moving right now
 
-  var busy = false;
+  function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  function between(r) { return r[0] + Math.random() * (r[1] - r[0]); }
+
   function play(name, ms) {
     if (REDUCED) return Promise.resolve();
     return new Promise(function (res) {
@@ -83,10 +79,10 @@
     });
   }
 
-  // natural blinking, separate from the other moves
+  // natural blinking, separate from the other moves (keeps going while walking)
   function blinkLoop() {
     play("blink", 180).then(function () {
-      if (Math.random() < 0.2) return new Promise(function (r) { setTimeout(r, 120); }).then(function () { return play("blink", 180); });
+      if (Math.random() < 0.2) return wait(120).then(function () { return play("blink", 180); });
     });
     setTimeout(blinkLoop, 2800 + Math.random() * 3200);
   }
@@ -103,22 +99,79 @@
     setTimeout(idleLoop, 3500 + Math.random() * 4500);
   }
 
-  // big reactions (new pledge)
-  function react(kind) {
-    if (REDUCED) return;
-    busy = true;
-    if (kind === "happy") {
-      el.classList.add("look-r-hold");
-      Promise.all([play("happy", 2600), play("wave", 1700), play("hop", 700)]).then(function () {
-        el.classList.remove("look-r-hold");
-        busy = false;
-      });
-    } else {
-      busy = false;
-    }
+  // ---------- walking
+  // Slide the whole robot (GPU) while the legs step (small SVG moves).
+  function stride(from, to, dir) {
+    var dist = Math.abs(to - from);
+    var speed = Math.max(70, innerWidth / 14);            // px per second
+    el.classList.add("walking", dir === "r" ? "go-r" : "go-l");
+    walking = true;
+    var anim = el.animate(
+      [{ transform: "translate3d(" + from + "px,0,0)" }, { transform: "translate3d(" + to + "px,0,0)" }],
+      { duration: dist / speed * 1000, easing: "cubic-bezier(.35,0,.65,1)", fill: "forwards" }
+    );
+    return anim.finished.then(function () {
+      el.classList.remove("walking", "go-r", "go-l");
+      walking = false;
+      return anim;
+    });
   }
 
-  window.WallRobot = { react: react, play: play };
+  function walk() {
+    if (REDUCED || busy) return Promise.resolve();
+    busy = true;
+    // walk up to the QR panel and stop just before it (never behind it)
+    var start = el.getBoundingClientRect();
+    var qr = document.getElementById("qrPanel");
+    var stopAt = qr ? qr.getBoundingClientRect().left - Math.max(16, innerWidth * 0.015) : innerWidth - start.left;
+    var far = Math.max(0, stopAt - start.right);
+    if (far < el.offsetWidth * 0.5) { busy = false; return Promise.resolve(); }   // no room to walk (narrow screen)
+    var out;
+    return stride(0, far, "r")
+      .then(function (a) { out = a; return play("look-l", 1800); })
+      .then(function () { return play("wave", 1700); })
+      .then(function () { return wait(500); })
+      .then(function () { return stride(far, 0, "l"); })
+      .then(function (back) {
+        // settle exactly at home and drop the finished animations
+        if (out) out.cancel();
+        back.cancel();
+        el.style.transform = "";
+        busy = false;
+        return play("hop", 700);
+      })
+      .catch(function () { el.classList.remove("walking", "go-r", "go-l"); el.style.transform = ""; walking = false; busy = false; });
+  }
+  function walkLoop() {
+    walk().then(function () { setTimeout(walkLoop, between(WALK_EVERY_MS)); });
+  }
+
+  // ---------- big reactions (new pledge)
+  function react(kind) {
+    if (REDUCED || kind !== "happy") return;
+    if (walking) {   // keep walking, just cheer
+      play("happy", 2600);
+      play("wave", 1700);
+      return;
+    }
+    var wasBusy = busy;
+    busy = true;
+    el.classList.add("look-r-hold");
+    Promise.all([play("happy", 2600), play("wave", 1700), play("hop", 700)]).then(function () {
+      el.classList.remove("look-r-hold");
+      if (!wasBusy) busy = false;
+    });
+  }
+
+  // where the robot normally stands (ignores the walk), so leaves keep that spot free
+  function homeRect() {
+    var parent = el.offsetParent ? el.offsetParent.getBoundingClientRect() : { left: 0, top: 0 };
+    var left = parent.left + el.offsetLeft, top = parent.top + el.offsetTop;
+    return { left: left, top: top, right: left + el.offsetWidth, bottom: top + el.offsetHeight };
+  }
+
+  window.WallRobot = { react: react, play: play, walk: walk, homeRect: homeRect, isWalking: function () { return walking; } };
   setTimeout(blinkLoop, 1200);
   setTimeout(idleLoop, 2500);
+  if (!REDUCED) setTimeout(walkLoop, between(WALK_FIRST_MS));
 })();

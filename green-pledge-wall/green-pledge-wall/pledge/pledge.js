@@ -296,6 +296,15 @@
     }, function () { return { ok: false, kind: "network" }; });
   }
 
+  // custom pledges: ask the translate-pledge function to add a translation (fire and forget)
+  function requestTranslation(id, payload) {
+    if (!payload.p_custom_text || typeof id !== "string") return;
+    fetch(apiBase() + "/functions/v1/translate-pledge", {
+      method: "POST", headers: { "apikey": CFG.SUPABASE_ANON_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ id: id }), keepalive: true
+    }).catch(function () { /* the pledge is saved either way */ });
+  }
+
   function checkPaused() {
     if (!configured) return Promise.resolve();
     return fetch(apiBase() + "/rest/v1/settings?select=pledging_open&id=eq.1", { headers: headers() })
@@ -314,6 +323,7 @@
     var item = queue[0];
     sendPledge(item).then(function (r) {
       // sent, or refused for good (bad data) -> remove; network/paused -> keep for later
+      if (r.ok) requestTranslation(r.id, item);
       if (r.ok || r.kind === "rejected") {
         store(QUEUE_KEY, load(QUEUE_KEY, []).filter(function (x) { return x.p_client_ref !== item.p_client_ref; }));
         syncing = false;
@@ -343,6 +353,7 @@
       btn.disabled = false;
       btn.textContent = t("submit");
       if (r.ok) {
+        requestTranslation(r.id, payload);
         if (!KIOSK) store(LAST_KEY, Date.now());
         return showDone(false, f.name);
       }

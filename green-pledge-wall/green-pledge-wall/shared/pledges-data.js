@@ -15,6 +15,8 @@
     { id: "waste",       color: "#D98E1F", interest: true,  en: "Waste",                ar: "النفايات" },
     { id: "coasts",      color: "#3478C6", interest: true,  en: "Wildlife & coasts",    ar: "الحياة البرية والسواحل" },
     { id: "environment", color: "#D4AE1E", interest: true,  en: "Healthy environments", ar: "بيئات صحية" },
+    { id: "farming",     color: "#4FA33A", interest: true,  en: "Food & farming",       ar: "الغذاء والزراعة" },
+    { id: "science",     color: "#8A6AD6", interest: false, en: "Science",              ar: "العلوم" },
     { id: "custom",      color: null,      interest: false, en: "In their own words",   ar: "بكلماتهم" }
   ];
 
@@ -57,7 +59,16 @@
       ar: "سأطفئ الأضواء والأجهزة التي لا أستخدمها." },
     { id: "air", topic: "environment",
       en: "I'll walk or share rides to help keep our air cleaner.",
-      ar: "سأمشي أو أشارك التنقل ليبقى هواؤنا أنظف." }
+      ar: "سأمشي أو أشارك التنقل ليبقى هواؤنا أنظف." },
+    { id: "farm", topic: "farming",
+      en: "I'll choose food grown with care for soil and water.",
+      ar: "سأختار طعاماً يُزرع بعناية بالتربة والماء." },
+    { id: "evidence", topic: "science",
+      en: "I'll check the facts before I share environmental claims.",
+      ar: "سأتحقق من المعلومات قبل أن أشارك أي ادعاء بيئي." },
+    { id: "learn", topic: "science",
+      en: "I'll learn how science can protect nature where I live.",
+      ar: "سأتعلم كيف يساعد العلم في حماية الطبيعة من حولي." }
   ];
 
   var CUSTOM_MAX = 90;
@@ -176,6 +187,17 @@
     if (!p) return "";
     return row.lang === "ar" ? p.ar : p.en;
   }
+  // Small translation line under a pledge: presets use their other-language
+  // text; custom pledges use the translation saved by the translate-pledge function.
+  // Returns { text, lang } or null.
+  function pledgeTranslation(row) {
+    if (row.custom_text) {
+      return row.translation ? { text: row.translation, lang: row.translation_lang || (row.lang === "ar" ? "en" : "ar") } : null;
+    }
+    var p = presetById(row.preset_id);
+    if (!p) return null;
+    return row.lang === "ar" ? { text: p.en, lang: "en" } : { text: p.ar, lang: "ar" };
+  }
   function leafSVG(color, extraClass) {
     return '<svg class="leaf ' + (extraClass || "") + '" viewBox="0 0 100 100" aria-hidden="true">' +
       '<path d="' + LEAF_PATH + '" fill="' + color + '"/>' +
@@ -186,6 +208,6 @@
   window.PLEDGE_DATA = {
     TOPICS: TOPICS, SWATCHES: SWATCHES, PRESETS: PRESETS, CUSTOM_MAX: CUSTOM_MAX, CONSENT: CONSENT, UI: UI,
     LEAF_PATH: LEAF_PATH, LEAF_VEIN: LEAF_VEIN, RULES: RULES,
-    topicById: topicById, presetById: presetById, pledgeText: pledgeText, leafSVG: leafSVG
+    topicById: topicById, presetById: presetById, pledgeText: pledgeText, pledgeTranslation: pledgeTranslation, leafSVG: leafSVG
   };
 })();

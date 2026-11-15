@@ -49,6 +49,16 @@ alter table public.pledges drop constraint if exists pledges_custom_topic;
 alter table public.pledges add constraint pledges_custom_topic
   check ((custom_text is not null) = (topic = 'custom'));
 
+-- Translation of custom pledges (Arabic -> English, English -> Arabic),
+-- written only by the translate-pledge Edge Function (secret key).
+-- The public key can read it (wall) but never write it.
+alter table public.pledges add column if not exists translation text;
+alter table public.pledges add column if not exists translation_lang text;
+alter table public.pledges drop constraint if exists pledges_translation_check;
+alter table public.pledges add constraint pledges_translation_check
+  check ((translation is null or char_length(translation) <= 200)
+     and (translation_lang is null or translation_lang in ('en','ar')));
+
 -- ---------------------------------------------------------------------
 -- 2. zayed_uni_leads: private contact details (all mandatory)
 -- ---------------------------------------------------------------------
