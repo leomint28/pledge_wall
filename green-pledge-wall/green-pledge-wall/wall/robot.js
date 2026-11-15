@@ -1,8 +1,8 @@
 /* =====================================================================
    Little robot in the bottom-left corner of the wall.
    Idle: blinks, glances, tilts its head, waves, hops, wiggles its sprout.
-   Now and then it walks sideways to the right, stops just before the QR
-   panel, looks around, waves, and walks back to its spot.
+   It walks sideways to the right, stops just before the QR panel, looks
+   around, waves, walks back, then rests 30 s at home before the next walk.
    window.WallRobot.react("happy") when a new pledge arrives.
    Moves are CSS classes on #robot; the walk slides the whole robot
    (one already-drawn layer), so it stays smooth.
@@ -14,8 +14,8 @@
   if (!el) return;
   var REDUCED = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  var WALK_FIRST_MS = [30000, 50000];   // first stroll after 30–50 s
-  var WALK_EVERY_MS = [60000, 120000];  // then every 1–2 minutes
+  var WALK_FIRST_MS = [30000, 30000];   // first walk 30 s after the wall opens
+  var WALK_EVERY_MS = [30000, 30000];   // then 30 s at home (small moves) between walks
 
   // Drawn in a 120 x 160 box. Parts that move are in their own groups.
   el.innerHTML =
@@ -118,14 +118,15 @@
   }
 
   function walk() {
-    if (REDUCED || busy) return Promise.resolve();
+    if (REDUCED) return Promise.resolve("off");
+    if (busy) return Promise.resolve("busy");   // cheering for a pledge: try again shortly
     busy = true;
     // walk up to the QR panel and stop just before it (never behind it)
     var start = el.getBoundingClientRect();
     var qr = document.getElementById("qrPanel");
     var stopAt = qr ? qr.getBoundingClientRect().left - Math.max(16, innerWidth * 0.015) : innerWidth - start.left;
     var far = Math.max(0, stopAt - start.right);
-    if (far < el.offsetWidth * 0.5) { busy = false; return Promise.resolve(); }   // no room to walk (narrow screen)
+    if (far < el.offsetWidth * 0.5) { busy = false; return Promise.resolve("no-room"); }   // narrow screen
     var out;
     return stride(0, far, "r")
       .then(function (a) { out = a; return play("look-l", 1800); })
@@ -143,7 +144,7 @@
       .catch(function () { el.classList.remove("walking", "go-r", "go-l"); el.style.transform = ""; walking = false; busy = false; });
   }
   function walkLoop() {
-    walk().then(function () { setTimeout(walkLoop, between(WALK_EVERY_MS)); });
+    walk().then(function (res) { setTimeout(walkLoop, res === "busy" ? 3000 : between(WALK_EVERY_MS)); });
   }
 
   // ---------- big reactions (new pledge)
