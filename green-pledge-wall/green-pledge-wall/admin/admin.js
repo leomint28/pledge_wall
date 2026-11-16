@@ -291,7 +291,7 @@
     var all = [], step = 1000;
     function page(from) {
       return sb.from("zayed_uni_leads")
-        .select("created_at,full_name,phone,email,interest_topic,source,lang,consent_text,consent_at,pledge_id,pledges(preset_id,custom_text,lang,translation,translation_lang)")
+        .select("created_at,full_name,phone,email,source,lang,consent_text,consent_at,pledge_id,pledges(preset_id,custom_text,lang,translation,translation_lang)")
         .order("created_at", { ascending: true }).range(from, from + step - 1)
         .then(function (r) {
           if (r.error) throw r.error;
@@ -306,12 +306,12 @@
     btn.disabled = true;
     btn.textContent = "Preparing…";
     fetchAllLeads().then(function (rows) {
-      var head = ["Date", "Full name", "Phone", "Email", "Interested in", "Pledge", "Pledge translation", "Pledge status", "Source", "Language", "Consent text", "Consent time"];
+      var head = ["Date", "Full name", "Phone", "Email", "Pledge", "Pledge translation", "Pledge status", "Source", "Language", "Consent text", "Consent time"];
       var lines = [head.join(",")];
       rows.forEach(function (r) {
         var p = r.pledges;
         lines.push([
-          new Date(r.created_at).toLocaleString("en-GB"), r.full_name, r.phone, r.email, topicName(r.interest_topic),
+          new Date(r.created_at).toLocaleString("en-GB"), r.full_name, r.phone, r.email,
           p ? D.pledgeText(p) : "", p && D.pledgeTranslation(p) ? D.pledgeTranslation(p).text : "", p ? "On the wall" : "Deleted from the wall",
           r.source === "kiosk" ? "Tablet" : "Phone", r.lang === "ar" ? "Arabic" : "English",
           r.consent_text, new Date(r.consent_at).toLocaleString("en-GB")
