@@ -35,14 +35,16 @@
   ];
 
   // Preset pledges (90 characters or fewer). id: lowercase letters, digits, dashes.
+  // "form: true" = shown as an option in the pledge form (4 options, one leaf colour each).
+  // The others stay here so older pledges that used them still display on the wall and admin page.
   var PRESETS = [
     { id: "water-save", topic: "water",
       en: "I'll save water on campus and at home: every drop counts in the UAE.",
       ar: "سأوفّر الماء في الجامعة وفي البيت، فكل قطرة مهمة في الإمارات." },
-    { id: "refill", topic: "water",
+    { id: "refill", form: true, topic: "water",
       en: "I'll carry a refillable bottle and say no to single-use plastic.",
       ar: "سأحمل قارورة قابلة لإعادة التعبئة وأرفض البلاستيك أحادي الاستخدام." },
-    { id: "food-waste", topic: "waste",
+    { id: "food-waste", form: true, topic: "waste",
       en: "I'll prevent food waste first: I'll take only what I'll eat.",
       ar: "سأمنع هدر الطعام أولاً، وآخذ فقط ما سآكله." },
     { id: "reuse", topic: "waste",
@@ -51,10 +53,10 @@
     { id: "sort", topic: "waste",
       en: "I'll sort my waste so recycling can work.",
       ar: "سأفرز نفاياتي لتنجح عملية إعادة التدوير." },
-    { id: "coast", topic: "coasts",
+    { id: "coast", form: true, topic: "coasts",
       en: "I'll keep beaches litter-free to protect coastal life and mangroves.",
       ar: "سأحافظ على نظافة الشواطئ لحماية الحياة الساحلية وأشجار القرم." },
-    { id: "energy", topic: "environment",
+    { id: "energy", form: true, topic: "environment",
       en: "I'll switch off lights and devices I'm not using.",
       ar: "سأطفئ الأضواء والأجهزة التي لا أستخدمها." },
     { id: "air", topic: "environment",
