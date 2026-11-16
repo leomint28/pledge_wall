@@ -135,15 +135,17 @@
   // counts
   function count(table, col, val) {
     var q = sb.from(table).select("id", { count: "exact", head: true });
-    if (col) q = q.eq(col, val);
+    if (col && val === null) q = q.is(col, null);
+    else if (col) q = q.eq(col, val);
     return q.then(function (r) { return r.count == null ? "–" : r.count.toLocaleString("en"); });
   }
   var statsT;
   function loadStats() {
     clearTimeout(statsT);
     statsT = setTimeout(function () {
-      Promise.all([count("pledges"), count("pledges", "source", "qr"), count("pledges", "source", "kiosk"), count("zayed_uni_leads")])
-        .then(function (v) { $("sTotal").textContent = v[0]; $("sQr").textContent = v[1]; $("sKiosk").textContent = v[2]; $("sLeads").textContent = v[3]; });
+      // a pledge deleted by staff leaves its lead behind with no pledge attached
+      Promise.all([count("pledges"), count("zayed_uni_leads", "pledge_id", null), count("zayed_uni_leads")])
+        .then(function (v) { $("sTotal").textContent = v[0]; $("sDeleted").textContent = v[1]; $("sLeads").textContent = v[2]; });
     }, 300);
   }
 
