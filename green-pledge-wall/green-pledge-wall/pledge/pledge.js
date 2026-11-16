@@ -40,7 +40,7 @@
   // ---------- state
   var lang = load(LANG_KEY, null) || ((navigator.language || "").toLowerCase().indexOf("ar") === 0 ? "ar" : "en");
   function freshState() {
-    return { presetId: null, custom: false, customColor: null, interest: null, clientRef: null };
+    return { presetId: null, custom: false, customColor: null, clientRef: null };
   }
   var state = freshState();
   var configured = !!(CFG.SUPABASE_URL && CFG.SUPABASE_ANON_KEY);
@@ -62,7 +62,6 @@
     document.title = t("brand");
     renderPresets();
     renderSwatches();
-    renderInterest();
     updateCustom();
     renderChosen();
     renderNotice();
@@ -77,29 +76,24 @@
     return b;
   }
 
-  // Presets grouped by topic, then "write my own" at the end.
+  // The 4 form presets in one list (each with its own leaf colour), then "write my own".
   function renderPresets() {
     var box = $("presets");
     box.innerHTML = "";
-    D.TOPICS.forEach(function (topic) {
-      var items = D.PRESETS.filter(function (p) { return p.topic === topic.id; });
-      if (!items.length) return;
-      var group = document.createElement("div");
-      group.className = "group";
-      group.innerHTML = '<p class="group-title">' + D.leafSVG(topic.color) + "<span></span></p>";
-      group.querySelector("span").textContent = topic[lang];
-      var list = document.createElement("div");
-      list.className = "options";
-      items.forEach(function (p) {
-        var b = radioButton("option", !state.custom && state.presetId === p.id);
-        b.innerHTML = D.leafSVG(topic.color) + '<span class="text"></span><span class="radio" aria-hidden="true"></span>';
-        b.querySelector(".text").textContent = p[lang];
-        b.addEventListener("click", function () { pickPreset(p.id); });
-        list.appendChild(b);
-      });
-      group.appendChild(list);
-      box.appendChild(group);
+    var list = document.createElement("div");
+    list.className = "options";
+    D.PRESETS.filter(function (p) { return p.form; }).forEach(function (p) {
+      var color = D.topicById(p.topic).color;
+      var b = radioButton("option", !state.custom && state.presetId === p.id);
+      b.innerHTML = D.leafSVG(color) + '<span class="text"></span><span class="radio" aria-hidden="true"></span>';
+      b.querySelector(".text").textContent = p[lang];
+      b.addEventListener("click", function () { pickPreset(p.id); });
+      list.appendChild(b);
     });
+    var group = document.createElement("div");
+    group.className = "group";
+    group.appendChild(list);
+    box.appendChild(group);
 
     var own = document.createElement("div");
     own.className = "group";
@@ -140,23 +134,6 @@
         clearError("pickError");
         renderSwatches();
         updateCustom();
-      });
-      box.appendChild(b);
-    });
-  }
-
-  function renderInterest() {
-    var box = $("interestTopics");
-    box.innerHTML = "";
-    box.setAttribute("role", "radiogroup");
-    D.TOPICS.filter(function (x) { return x.interest; }).forEach(function (tp) {
-      var b = radioButton("chip", state.interest === tp.id);
-      b.innerHTML = D.leafSVG(tp.color) + "<span></span>";
-      b.lastChild.textContent = tp[lang];
-      b.addEventListener("click", function () {
-        state.interest = tp.id;
-        clearError("eInterest");
-        renderInterest();
       });
       box.appendChild(b);
     });
@@ -241,14 +218,13 @@
     var name = $("fName").value.trim().replace(/\s+/g, " ");
     var phone = $("fPhone").value.trim();
     var email = $("fEmail").value.trim();
-    ["eName", "ePhone", "eEmail", "eInterest"].forEach(function (e) { clearError(e); });
+    ["eName", "ePhone", "eEmail"].forEach(function (e) { clearError(e); });
     ["fName", "fPhone", "fEmail"].forEach(function (f) { $(f).removeAttribute("aria-invalid"); });
 
     if (name.length < D.RULES.nameMin || name.length > D.RULES.nameMax) { setError("eName", t("errName"), "fName"); ok = false; first = first || "fName"; }
     var digits = phone.replace(/\D/g, "").length;
     if (!D.RULES.phone.test(phone) || digits < 7 || digits > 15) { setError("ePhone", t("errPhone"), "fPhone"); ok = false; first = first || "fPhone"; }
     if (!D.RULES.email.test(email) || email.length > D.RULES.emailMax) { setError("eEmail", t("errEmail"), "fEmail"); ok = false; first = first || "fEmail"; }
-    if (!state.interest) { setError("eInterest", t("errInterest")); ok = false; }
     if (first) $(first).focus();
     return ok ? { name: name, phone: phone, email: email } : null;
   }
@@ -260,7 +236,7 @@
       p_full_name: f.name,
       p_phone: f.phone,
       p_email: f.email,
-      p_interest_topic: state.interest,
+      p_interest_topic: null,   // no longer asked
       p_preset_id: state.custom ? null : state.presetId,
       p_custom_text: state.custom ? c.text : null,
       p_topic: c.topic,
@@ -389,7 +365,7 @@
     state = freshState();
     $("detailsForm").reset();
     $("customText").value = "";
-    ["pickError", "submitError", "eName", "ePhone", "eEmail", "eInterest"].forEach(function (e) { clearError(e); });
+    ["pickError", "submitError", "eName", "ePhone", "eEmail"].forEach(function (e) { clearError(e); });
     applyLanguage();
     show("stepPick");
   }
